@@ -7,10 +7,10 @@ import { config } from "@/config";
 import { ABIStakingContract } from "@/lib/ABI";
 import { useAccount } from "wagmi";
 import { getEthInUsd } from "@/lib/helpers";
+import { STAKING_ADDRESS } from "@/lib/Address";
 
 const Portfolio = () => {
   const { address } = useAccount();
-  const STAKING_CONTRACT = "0xe442ac7Bd4Bbc114f1FA8588DAC43f4098c7058C";
   const [stakedAmount, setStakedAmount] = useState<string | null>(null);
   const [stakedAmountUSD, setStakedAmountUSD] = useState<string | null>(null);
   const [isLoading, setisLoading] = useState(false);
@@ -20,9 +20,10 @@ const Portfolio = () => {
       abi: ABIStakingContract,
       functionName: "stakedAmount",
       args: [address],
-      address: STAKING_CONTRACT,
+      address: STAKING_ADDRESS,
     });
-    if (!tx) return;
+    console.log(tx, "lol");
+    if (tx == undefined) return;
     setStakedAmount(tx as string);
     const eth = formatEther(tx as string);
     const usdPrice = await getEthInUsd(Number(eth));
@@ -48,7 +49,7 @@ const Portfolio = () => {
       <CardContent>
         <div className="grid grid-cols-2 gap-4">
           <div className="text-center p-4 bg-gray-800/50 rounded-lg hover:bg-gray-800/70 transition-all duration-300 transform hover:scale-105">
-            <div className="text-2xl font-bold text-white">
+            <div className="text-lg  text-white">
               {isLoading
                 ? "Fetching ETH staked...."
                 : stakedAmount
@@ -58,7 +59,7 @@ const Portfolio = () => {
             <div className="text-sm text-gray-400">ETH Staked</div>
           </div>
           <div className="text-center p-4 bg-gray-800/50 rounded-lg hover:bg-gray-800/70 transition-all duration-300 transform hover:scale-105">
-            <div className="text-2xl font-bold text-green-400">
+            <div className="text-lg  text-green-400">
               {isLoading
                 ? "Converting staked ETH into USD...."
                 : stakedAmount

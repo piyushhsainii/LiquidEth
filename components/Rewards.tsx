@@ -6,19 +6,22 @@ import {
   CardHeader,
   CardTitle,
 } from "./ui/card";
-import { Gift } from "lucide-react";
+import { CoinsIcon, Gift } from "lucide-react";
 import { Button } from "./ui/button";
-import { readContract } from "wagmi/actions";
-import { ABIStakingContract } from "@/lib/ABI";
+import {
+  readContract,
+  waitForTransactionReceipt,
+  writeContract,
+} from "wagmi/actions";
+import { ABICustomToken, ABIStakingContract } from "@/lib/ABI";
 import { config } from "@/config";
 import { useAccount } from "wagmi";
 import { toast } from "sonner";
-import { formatEther, parseEther } from "ethers";
+import { STAKING_ADDRESS } from "@/lib/Address";
 
 const Rewards = () => {
-  const STAKING_CONTRACT = "0xe442ac7Bd4Bbc114f1FA8588DAC43f4098c7058C";
   const { address } = useAccount();
-  const [rewards, setRewards] = useState<string | null>(null);
+  const [rewards, setRewards] = useState<bigint | null>(null);
   const [isClaiming, setIsClaiming] = useState(false);
   const [isLoading, setisLoading] = useState(false);
 
@@ -26,20 +29,17 @@ const Rewards = () => {
     setisLoading(true);
     const tx = await readContract(config, {
       abi: ABIStakingContract,
-      address: STAKING_CONTRACT,
+      address: STAKING_ADDRESS,
       functionName: "getRewards",
       account: address,
     });
     setisLoading(false);
     console.log(tx);
     if (!tx) {
-      toast("Could not fetch Rewards");
+      toast("Rewards will be available soon!");
       return;
     }
-    console.log(tx);
-    const eth = formatEther(tx as string);
-    console.log(eth, "reward");
-    setRewards(eth);
+    setRewards(tx as bigint);
     setisLoading(false);
   };
 
@@ -48,9 +48,27 @@ const Rewards = () => {
     setIsClaiming(true);
     try {
       // Your claim logic
-      console.log("Claiming rewards...");
+      const tx = await writeContract(config, {
+        abi: ABIStakingContract,
+        address: STAKING_ADDRESS,
+        functionName: "claimRewards",
+        account: address,
+      });
+      console.log(tx);
+      if (!tx) {
+        toast("Error occured while claiming rewards");
+        return;
+      }
+      const receipt = await waitForTransactionReceipt(config, {
+        hash: tx,
+      });
+      if (receipt.status == "success") {
+        console.log("Claiming rewards...");
+        toast("Rewards Claimed successfully.");
+        setRewards(null);
+      }
       // After successful claim, refetch rewards
-      // await refetchRewards();
+      await checkRewards();
     } catch (error) {
       console.error("Error claiming rewards:", error);
     } finally {
@@ -58,7 +76,9 @@ const Rewards = () => {
     }
   };
 
-  useEffect(() => {}, []);
+  useEffect(() => {
+    checkRewards();
+  }, []);
 
   return (
     <Card className="bg-gray-900/50 border-gray-800 backdrop-blur-sm hover:bg-gray-900/60 transition-all duration-300">
@@ -74,8 +94,12 @@ const Rewards = () => {
       <CardContent className="space-y-4">
         {rewards ? (
           <div className="text-center p-6 bg-gradient-to-r from-green-500/10 to-green-600/10 rounded-lg border border-green-500/20 hover:from-green-500/15 hover:to-green-600/15 transition-all duration-300">
-            <div className="text-3xl font-bold text-green-400 mb-2">
-              {rewards} ETH
+            <div className="text-3xl font-bold text-green-400 mb-2 flex justify-center items-center gap-2">
+              <div>{rewards}</div>
+              <div>
+                {" "}
+                <CoinsIcon />{" "}
+              </div>
             </div>
             <div className="text-sm text-gray-400 mb-4">Available Rewards</div>
           </div>
@@ -88,7 +112,7 @@ const Rewards = () => {
         <div className="grid grid-cols-2 gap-3">
           <Button
             onClick={() => checkRewards()}
-            // disabled={}
+            disabled={isClaiming}
             variant="outline"
             className="border-green-500 text-green-400 hover:bg-green-500/10 bg-transparent transition-all duration-300 transform hover:scale-105 active:scale-95"
           >
